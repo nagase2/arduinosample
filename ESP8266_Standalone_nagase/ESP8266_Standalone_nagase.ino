@@ -128,13 +128,13 @@ void sensePIR(){
     digitalWrite(LED,HIGH); //人感センサ検知したらLED点灯
      detectedCountPIR1++;
      Serial.printf("PIR1:There!!![%d]\n",loopCount);
-     Blynk.virtualWrite(V2,GRAPH_TRUE);
+    // Blynk.virtualWrite(V2,GRAPH_TRUE);
      returnValue = 10;
   }
   else{
     digitalWrite(LED,LOW); //人感センサ検知なければLED消灯
     Serial.printf("PIR1:no one[%d]\n",loopCount);
-    Blynk.virtualWrite(V2,GRAPH_FALSE);
+    //Blynk.virtualWrite(V2,GRAPH_FALSE);
     returnValue = 1;
   }
   
@@ -148,7 +148,7 @@ void sensePIR(){
   
   if(loopCount % 2 == 0){
     //検知カウントをクライアントに送信
-    Blynk.virtualWrite(V1,detectedCountPIR1);
+   // Blynk.virtualWrite(V1,detectedCountPIR1);
   }
   
              
@@ -156,7 +156,7 @@ void sensePIR(){
     String  s1 = "abcde";
     if(detectedCountPIR1 >= EXISTING_SENCE_CNT){
        analogWrite(SMALL_LED,10);
-       Blynk.virtualWrite(V3,GRAPH_TRUE); //存在グラフ
+       //Blynk.virtualWrite(V3,GRAPH_TRUE); //存在グラフ
        submitToM2X(1,10); //存在
        
        //もし、一度でもTrueがあれば存在と通知。
@@ -164,7 +164,7 @@ void sensePIR(){
        sleepCount=0; //スリープカウントをリセット
     }else{
       analogWrite(SMALL_LED,0);
-      Blynk.virtualWrite(V3,GRAPH_FALSE); //存在グラフ
+      //Blynk.virtualWrite(V3,GRAPH_FALSE); //存在グラフ
       submitToM2X(1,1); //不在
       
       //一度もTrueがなければ不在と通知
@@ -213,12 +213,12 @@ void setup() {
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED,5); //一旦LED点灯。
 
-  Blynk.begin(auth, ssid, password);
+  //Blynk.begin(auth, ssid, password);
 
 /////////////////////
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(3000);
     Serial.print(".");
   }
  //delay(1000); //PIRセットアップのため少し待たせる？
@@ -227,12 +227,13 @@ void setup() {
 
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed");
+    deepSleep();//コネクション失敗したら再起動
     return;
   }
   ////////////////////////////
 
   int connectFailedCount = 0;
-  while (Blynk.connect() == false) {
+ /* while (Blynk.connect() == false) {
        if(connectFailedCount > 5){
          Serial.println("I'm going to deepsleep mode, because there is no wifi to connect.");
          deepSleep();
@@ -241,7 +242,7 @@ void setup() {
          connectFailedCount++;
        }
        delay(1000);
-  }
+  }*/
   //接続完了したことをLED点滅で示す。
   for(int k=0;k<3;k++){
     for(int i=0;i<=200;i++){
@@ -266,7 +267,7 @@ void setup() {
 void loop()
 {
   count++;
-  Blynk.run();
+  //Blynk.run();
   timer.run(); // Initiates SimpleTimer
   timer2.run(); // Initiates SimpleTimer
   //Serial.println(count);
