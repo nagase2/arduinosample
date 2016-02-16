@@ -12,13 +12,14 @@
 
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
 #define LED  13   //the Grove - LED is connected to D4 of Arduino
+#define PIR_MOTION_SENSOR2  14   
 #define SEND_HTTP_COUNT  10 //HTTPリクエストを送る頻度
 #define EXISTING_SENCE_CNT 4 //一HTTPリクエスト中、誰かがいると検知する最低回数。
 #define DETECT_FREQ  1000 //センサの値をとる頻度
 #define SMALL_LED  12 
 #define PIR_POWER  15 //黄色
 #define DEEP_SLEEP_COUNT 0 //Deep sleep に入るまでのカウント数(連続して検知ができなかったら）
-#define SLEEP_DURATION 60 //スリープする時間（秒単位）
+#define SLEEP_DURATION 30 //スリープする時間（秒単位）
 
 
 #define GRAPH_TRUE  10 //グラフの存在数値
@@ -33,13 +34,14 @@ SimpleTimer timer2;
 int count = 0;
 
 int loopCount = 0;
-int notify = 0;
+int detectedCountPIR1 = 0;
+int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
 
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
 const char* host = "api-m2x.att.com";
-String tempurl =  "/v2/devices/b4f55b41c6a7269fe0a2612651474aed/streams/pir/value";
+
 // Use WiFiClient class to create TCP connections
 WiFiClient client;
 const char* m2xKey = "67e01b6454c2af670ff6bea10ad1893e";
@@ -61,38 +63,34 @@ boolean isPeopleDetected()
 void pinsInit()
 {
   pinMode(PIR_MOTION_SENSOR, INPUT);
+  pinMode(PIR_MOTION_SENSOR2, INPUT);
   pinMode(LED,OUTPUT);
   pinMode(SMALL_LED, OUTPUT);
   pinMode(PIR_POWER, OUTPUT);
   
 }
-void submitToM2X(int returnValue){
+void submitToM2X(int PIRNumber, int returnValue){
+  String sensorID="";
+  if(PIRNumber==1){
+    sensorID = "pir";
+  }else{
+    sensorID = "PIR2";
+  }
+  
+  String m2xURL =  "/v2/devices/b4f55b41c6a7269fe0a2612651474aed/streams/"+sensorID+"/value";
+  
   //M2xにデータを送信する
-   client.print("PUT " + tempurl + " HTTP/1.1\r\n" +
+   client.print("PUT " + m2xURL + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
                "User-Agent: curl/7.43.0\r\n" +
                "Accept: */*\r\n" +
                "X-M2X-KEY: " + m2xKey + "\r\n" +
                "Content-Type: application/json\r\n" +
-               "Connection: close\r\n" + 
+              // "Connection: close\r\n" + 
                "Content-Length: 17\r\n\r\n" +
                "{ \"value\": \"" + returnValue + "\" }\r\n");
 }
 
-// This function sends Arduino's up time every second to Virtual Pin (5).
-// In the app, Widget's reading frequency should be set to PUSH. This means
-// that you define how often to send data to Blynk App.
- void sendUptime()
-{
-  // You can send any value at any time.
-  // Please don't send more that 10 values per second.
-  /*if(count%2 == 1){
-   Blynk.virtualWrite(V5, LOW);
-  }else{
-    Blynk.virtualWrite(V5, HIGH);
-  }*/
-  //Blynk.virtualWrite(V1,count);
-}
 
 /**
  * LEDを点滅させる
@@ -128,41 +126,47 @@ void sensePIR(){
   int returnValue = 0;
   if(isPeopleDetected()){//if it detects the moving people?
     digitalWrite(LED,HIGH); //人感センサ検知したらLED点灯
-     notify++;
-     Serial.printf("There!!![%d]\n",loopCount);
+     detectedCountPIR1++;
+     Serial.printf("PIR1:There!!![%d]\n",loopCount);
      Blynk.virtualWrite(V2,GRAPH_TRUE);
      returnValue = 10;
   }
   else{
     digitalWrite(LED,LOW); //人感センサ検知なければLED消灯
-    Serial.printf("no one[%d]\n",loopCount);
+    Serial.printf("PIR1:no one[%d]\n",loopCount);
     Blynk.virtualWrite(V2,GRAPH_FALSE);
     returnValue = 1;
   }
+  
+  if(digitalRead(PIR_MOTION_SENSOR2)==HIGH){
+    Serial.println("PIR2:detected someone");
+    detectedCountPIR2++;
+  }else{
+    Serial.println("PIR2:could not find anyone");
+  }
+
+  
   if(loopCount % 2 == 0){
     //検知カウントをクライアントに送信
-    Blynk.virtualWrite(V1,notify);
+    Blynk.virtualWrite(V1,detectedCountPIR1);
   }
   
-               
-  if(loopCount >= SEND_HTTP_COUNT){
+             
+  if(loopCount >= SEND_HTTP_COUNT){ //１０回程度に一度実行 
     String  s1 = "abcde";
-    if(notify >= EXISTING_SENCE_CNT){
-      
-       
+    if(detectedCountPIR1 >= EXISTING_SENCE_CNT){
        analogWrite(SMALL_LED,10);
        Blynk.virtualWrite(V3,GRAPH_TRUE); //存在グラフ
-       submitToM2X(10);
+       submitToM2X(1,10); //存在
+       
        //もし、一度でもTrueがあれば存在と通知。
        Serial.print("----HTTP request had been sent. There was some person!!!!----\n");
        sleepCount=0; //スリープカウントをリセット
-  
-       deepSleep(); //毎回Sleep
     }else{
-      
       analogWrite(SMALL_LED,0);
       Blynk.virtualWrite(V3,GRAPH_FALSE); //存在グラフ
-      submitToM2X(0); //M2Xに書き込み
+      submitToM2X(1,1); //不在
+      
       //一度もTrueがなければ不在と通知
       Serial.print("----HTTP request had been sent. no body was there----\n");
      
@@ -173,9 +177,23 @@ void sensePIR(){
         Serial.println("Sleep count up");
       }
     }
+    delay(1000);
+    //2つめのセンサの情報をM2Xにアップ
+     if(detectedCountPIR2 >= EXISTING_SENCE_CNT){
+      submitToM2X(2,10); //存在
+      Serial.println("PIR2 10 has been submitted");
+     }else{
+      submitToM2X(2,1); //存在
+      Serial.println("PIR2 1 has been submitted");
+     }
+     
+    
+    deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
+    
     //reset roop count
     loopCount = 0;
-    notify = 0;
+    detectedCountPIR1 = 0;
+    detectedCountPIR2 = 0;
   }
   //delay(DETECT_FREQ);
 }
@@ -203,10 +221,10 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
- // delay(500);
+ //delay(1000); //PIRセットアップのため少し待たせる？
 
   const int httpPort = 80;
-  //const int httpPort = 7776;
+
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed");
     return;
@@ -254,17 +272,6 @@ void loop()
   //Serial.println(count);
 }
 
-// This function will be called every time
-// when App writes value to Virtual Pin 1
-BLYNK_WRITE(V10)
-{
-  BLYNK_LOG("Got a value: %s", param.asStr());
-  // You can also use: 
-  // int i = param.asInt() or 
-  // double d = param.asDouble()
-  //analogWrite(YELLOW_LED,param.asInt()); //アナログでLED点灯
-
-}
 
 
 
