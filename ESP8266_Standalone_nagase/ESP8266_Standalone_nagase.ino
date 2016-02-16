@@ -16,9 +16,9 @@
 #define EXISTING_SENCE_CNT 4 //一HTTPリクエスト中、誰かがいると検知する最低回数。
 #define DETECT_FREQ  1000 //センサの値をとる頻度
 #define SMALL_LED  12 
-#define YELLOW_LED  2 //黄色
+#define PIR_POWER  15 //黄色
 #define DEEP_SLEEP_COUNT 0 //Deep sleep に入るまでのカウント数(連続して検知ができなかったら）
-#define SLEEP_DURATION 30 //スリープする時間（秒単位）
+#define SLEEP_DURATION 60 //スリープする時間（秒単位）
 
 
 #define GRAPH_TRUE  10 //グラフの存在数値
@@ -35,6 +35,14 @@ int count = 0;
 int loopCount = 0;
 int notify = 0;
 int sleepCount = 0; //ディープスリープカウント
+
+const char* ssid     = "NAGA12345";
+const char* password = "nagase222";
+const char* host = "api-m2x.att.com";
+String tempurl =  "/v2/devices/b4f55b41c6a7269fe0a2612651474aed/streams/pir/value";
+// Use WiFiClient class to create TCP connections
+WiFiClient client;
+const char* m2xKey = "67e01b6454c2af670ff6bea10ad1893e";
 
 
 boolean isPeopleDetected()
@@ -55,8 +63,20 @@ void pinsInit()
   pinMode(PIR_MOTION_SENSOR, INPUT);
   pinMode(LED,OUTPUT);
   pinMode(SMALL_LED, OUTPUT);
-  pinMode(YELLOW_LED, OUTPUT);
+  pinMode(PIR_POWER, OUTPUT);
   
+}
+void submitToM2X(int returnValue){
+  //M2xにデータを送信する
+   client.print("PUT " + tempurl + " HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" +
+               "User-Agent: curl/7.43.0\r\n" +
+               "Accept: */*\r\n" +
+               "X-M2X-KEY: " + m2xKey + "\r\n" +
+               "Content-Type: application/json\r\n" +
+               "Connection: close\r\n" + 
+               "Content-Length: 17\r\n\r\n" +
+               "{ \"value\": \"" + returnValue + "\" }\r\n");
 }
 
 // This function sends Arduino's up time every second to Virtual Pin (5).
@@ -105,21 +125,26 @@ void deepSleep(){
  */
 void sensePIR(){
      loopCount++;
+  int returnValue = 0;
   if(isPeopleDetected()){//if it detects the moving people?
     digitalWrite(LED,HIGH); //人感センサ検知したらLED点灯
      notify++;
      Serial.printf("There!!![%d]\n",loopCount);
      Blynk.virtualWrite(V2,GRAPH_TRUE);
+     returnValue = 10;
   }
   else{
     digitalWrite(LED,LOW); //人感センサ検知なければLED消灯
     Serial.printf("no one[%d]\n",loopCount);
-    Blynk.virtualWrite(V2,GRAPH_FALSE); 
+    Blynk.virtualWrite(V2,GRAPH_FALSE);
+    returnValue = 1;
   }
   if(loopCount % 2 == 0){
     //検知カウントをクライアントに送信
     Blynk.virtualWrite(V1,notify);
   }
+  
+               
   if(loopCount >= SEND_HTTP_COUNT){
     String  s1 = "abcde";
     if(notify >= EXISTING_SENCE_CNT){
@@ -127,6 +152,7 @@ void sensePIR(){
        
        analogWrite(SMALL_LED,10);
        Blynk.virtualWrite(V3,GRAPH_TRUE); //存在グラフ
+       submitToM2X(10);
        //もし、一度でもTrueがあれば存在と通知。
        Serial.print("----HTTP request had been sent. There was some person!!!!----\n");
        sleepCount=0; //スリープカウントをリセット
@@ -136,6 +162,7 @@ void sensePIR(){
       
       analogWrite(SMALL_LED,0);
       Blynk.virtualWrite(V3,GRAPH_FALSE); //存在グラフ
+      submitToM2X(0); //M2Xに書き込み
       //一度もTrueがなければ不在と通知
       Serial.print("----HTTP request had been sent. no body was there----\n");
      
@@ -153,18 +180,38 @@ void sensePIR(){
   //delay(DETECT_FREQ);
 }
 
+
+
 /**
  * 起動時に実行。Wifiに接続する。
  */
 void setup() {
+  
   Serial.begin(115200);
   Serial.println("starting  setup");
   pinsInit();
-
+  //人感センサの電源をON
+  digitalWrite(PIR_POWER,HIGH);
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED,5); //一旦LED点灯。
 
-  Blynk.begin(auth, "NAGA12345", "nagase222");
+  Blynk.begin(auth, ssid, password);
+
+/////////////////////
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+ // delay(500);
+
+  const int httpPort = 80;
+  //const int httpPort = 7776;
+  if (!client.connect(host, httpPort)) {
+    Serial.println("connection failed");
+    return;
+  }
+  ////////////////////////////
 
   int connectFailedCount = 0;
   while (Blynk.connect() == false) {
@@ -193,7 +240,7 @@ void setup() {
   Serial.println("end of setup");
 
   //タイマーを開始
-  timer2.setInterval(1000, sendUptime); //何もしていないのでコメントアウト
+  //timer2.setInterval(1000, sendUptime); //何もしていないのでコメントアウト
   timer.setInterval(1000, sensePIR); 
 
 }
@@ -215,7 +262,7 @@ BLYNK_WRITE(V10)
   // You can also use: 
   // int i = param.asInt() or 
   // double d = param.asDouble()
-  analogWrite(YELLOW_LED,param.asInt()); //アナログでLED点灯
+  //analogWrite(YELLOW_LED,param.asInt()); //アナログでLED点灯
 
 }
 

@@ -63,7 +63,10 @@ void loop() {
         USE_SERIAL.print("[HTTP] begin...\n");
         // configure traged server and url
         //http.begin("192.168.1.12", 443, "/test.html", true, "7a 9c f4 db 40 d3 62 5a 6e 21 bc 5c cc 66 c8 3e a1 45 59 38"); //HTTPS
-        http.begin("www.tutorialspoint.com", 80, "/http/"); //HTTP
+        http.begin("api-m2x.att.com/v2/devi94a8a3d8b62ecd0/streams/kkkk/value", 80, "/http/"); //HTTP
+        http.addHeader("X-M2X-KEY","67e01b6454c2af670ff6bea10ad1893e");
+        http.addHeader("Content-Type","application/json");
+        
 
         USE_SERIAL.print("[HTTP] GET...\n");
         // start connection and send HTTP header
