@@ -14,7 +14,7 @@
 #define LED  13   //the Grove - LED is connected to D4 of Arduino
 #define PIR_MOTION_SENSOR2  14   
 #define SEND_HTTP_COUNT  10 //HTTPリクエストを送る頻度
-#define EXISTING_SENCE_CNT 4 //一HTTPリクエスト中、誰かがいると検知する最低回数。
+#define EXISTING_SENCE_CNT 1 //一HTTPリクエスト中、誰かがいると検知する最低回数。
 #define DETECT_FREQ  1000 //センサの値をとる頻度
 #define SMALL_LED  12 
 #define PIR_POWER  15 //黄色
@@ -170,12 +170,13 @@ void sensePIR(){
       //一度もTrueがなければ不在と通知
       Serial.print("----HTTP request had been sent. no body was there----\n");
      
-      if(sleepCount >= DEEP_SLEEP_COUNT){ //２回連続不在だったら
+    /*  if(sleepCount >= DEEP_SLEEP_COUNT){ //２回連続不在だったら
+     *  Serial.println("Sleep because sleep count has been reached to DEEP_SLEEP_COUNT");
         deepSleep();
       }else{
          sleepCount++;
         Serial.println("Sleep count up");
-      }
+      }*/
     }
     delay(1000);
     //2つめのセンサの情報をM2Xにアップ
@@ -183,10 +184,10 @@ void sensePIR(){
       submitToM2X(2,10); //存在
       Serial.println("PIR2 10 has been submitted");
      }else{
-      submitToM2X(2,1); //存在
+      submitToM2X(2,0); //存在
       Serial.println("PIR2 1 has been submitted");
      }
-     
+     //delay(5000); //データがアップされるのを待機
     
     deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
     
@@ -212,8 +213,8 @@ void setup() {
   digitalWrite(PIR_POWER,HIGH);
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED,5); //一旦LED点灯。
-
-  //Blynk.begin(auth, ssid, password);
+  //Blynkの環境セットアップ
+ // Blynk.begin(auth, ssid, password);
 
 /////////////////////
   WiFi.begin(ssid, password);
@@ -221,14 +222,18 @@ void setup() {
     delay(3000);
     Serial.print(".");
   }
- //delay(1000); //PIRセットアップのため少し待たせる？
+  delay(2000); //PIRセットアップのため少し待たせる？
 
   const int httpPort = 80;
 
   if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
-    deepSleep();//コネクション失敗したら再起動
-    return;
+    Serial.println("connection failed 1");
+    delay(5000);
+    if (!client.connect(host, httpPort)) {
+      Serial.println("connection failed 2");
+      deepSleep();//コネクション失敗したら再起動
+      return;
+    }
   }
   ////////////////////////////
 
