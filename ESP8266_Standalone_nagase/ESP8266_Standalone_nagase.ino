@@ -13,13 +13,13 @@
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
 #define LED  13   //the Grove - LED is connected to D4 of Arduino
 #define PIR_MOTION_SENSOR2  14   
-#define SEND_HTTP_COUNT  10 //HTTPリクエストを送る頻度
+#define SEND_HTTP_COUNT  30 //HTTPリクエストを送る頻度(適正値：１０）
 #define EXISTING_SENCE_CNT 1 //一HTTPリクエスト中、誰かがいると検知する最低回数。
 #define DETECT_FREQ  1000 //センサの値をとる頻度
 #define SMALL_LED  12 
 #define PIR_POWER  15 //黄色
-#define DEEP_SLEEP_COUNT 0 //Deep sleep に入るまでのカウント数(連続して検知ができなかったら）
-#define SLEEP_DURATION 30 //スリープする時間（秒単位）
+#define DEEP_SLEEP_COUNT 0 //Deep s]leep に入るまでのカウント数(連続して検知ができなかったら） 
+#define SLEEP_DURATION 5 //スリープする時間（秒単位）（適正値：３０〜６０）
 
 
 #define GRAPH_TRUE  10 //グラフの存在数値
@@ -38,7 +38,7 @@ int detectedCountPIR1 = 0;
 int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
 
-const char* ssid     = "NAGA12345";
+const char* ssid     = "NAGA123456";
 const char* password = "nagase222";
 const char* host = "api-m2x.att.com";
 
@@ -111,6 +111,7 @@ void deepSleep(){
     Serial.println("DEEP SLEEP START!!");
     //LED点滅
     blinkLED(SMALL_LED,100,2);
+    blinkLED(LED,300,3);
   
     //1:μ秒での復帰までのタイマー時間設定  2:復帰するきっかけの設定（モード設定）
     ESP.deepSleep(SLEEP_DURATION * 1000 * 1000 , WAKE_RF_DEFAULT);
@@ -229,11 +230,17 @@ void setup() {
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed 1");
     delay(5000);
-    if (!client.connect(host, httpPort)) {
+    if (!client.connect(host, httpPort)) { 
+      delay(5000); 
       Serial.println("connection failed 2");
-      deepSleep();//コネクション失敗したら再起動
-      return;
+      
+      if (!client.connect(host, httpPort)) {
+          Serial.println("connection failed 3 going to deep sleep mode now..");
+          deepSleep();//コネクション失敗したら再起動
+          return;
+      }
     }
+    
   }
   ////////////////////////////
 
@@ -253,21 +260,25 @@ void setup() {
     for(int i=0;i<=200;i++){
       //Serial.println(i);
       analogWrite(SMALL_LED,i);
+      analogWrite(LED,i);
       delay(1);
     }
      for(int i=200;i>=0;i--){
       //Serial.println(i);
       analogWrite(SMALL_LED,i);
+      analogWrite(LED,i);
       delay(1);
     }
   }
   Serial.println("end of setup");
+  
 
   //タイマーを開始
   //timer2.setInterval(1000, sendUptime); //何もしていないのでコメントアウト
   timer.setInterval(1000, sensePIR); 
 
 }
+
 
 void loop()
 {
