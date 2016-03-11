@@ -11,14 +11,16 @@
 
 
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
-#define LED  13   //the Grove - LED is connected to D4 of Arduino
+#define LED  14   //the Grove - LED is connected to D4 of Arduino
 #define PIR_MOTION_SENSOR2  14   
-#define SEND_HTTP_COUNT  30 //HTTPリクエストを送る頻度(適正値：１０）
-#define EXISTING_SENCE_CNT 1 //一HTTPリクエスト中、誰かがいると検知する最低回数。
+#define SEND_HTTP_COUNT  60
+//HTTPリクエストを送る頻度(適正値：１０）
+#define EXISTING_SENCE_CNT 1
+//一HTTPリクエスト中、誰かがいると検知する最低回数。
 #define DETECT_FREQ  1000 //センサの値をとる頻度
 #define SMALL_LED  12 
-#define PIR_POWER  15 //黄色
-#define DEEP_SLEEP_COUNT 0 //Deep s]leep に入るまでのカウント数(連続して検知ができなかったら） 
+//#define PIR_POWER  15 //黄色
+#define DEEP_SLEEP_COUNT 3 //Deep s]leep に入るまでのカウント数(連続して検知ができなかったら） 
 #define SLEEP_DURATION 5 //スリープする時間（秒単位）（適正値：３０〜６０）
 
 
@@ -38,7 +40,7 @@ int detectedCountPIR1 = 0;
 int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
 
-const char* ssid     = "NAGA123456";
+const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
 const char* host = "api-m2x.att.com";
 
@@ -63,10 +65,10 @@ boolean isPeopleDetected()
 void pinsInit()
 {
   pinMode(PIR_MOTION_SENSOR, INPUT);
-  pinMode(PIR_MOTION_SENSOR2, INPUT);
+  //pinMode(PIR_MOTION_SENSOR2, INPUT);
   pinMode(LED,OUTPUT);
   pinMode(SMALL_LED, OUTPUT);
-  pinMode(PIR_POWER, OUTPUT);
+  //pinMode(PIR_POWER, OUTPUT);
   
 }
 void submitToM2X(int PIRNumber, int returnValue){
@@ -139,12 +141,12 @@ void sensePIR(){
     returnValue = 1;
   }
   
-  if(digitalRead(PIR_MOTION_SENSOR2)==HIGH){
+  /*if(digitalRead(PIR_MOTION_SENSOR2)==HIGH){
     Serial.println("PIR2:detected someone");
     detectedCountPIR2++;
   }else{
     Serial.println("PIR2:could not find anyone");
-  }
+  }*/
 
   
   if(loopCount % 2 == 0){
@@ -181,13 +183,13 @@ void sensePIR(){
     }
     delay(1000);
     //2つめのセンサの情報をM2Xにアップ
-     if(detectedCountPIR2 >= EXISTING_SENCE_CNT){
+  /*   if(detectedCountPIR2 >= EXISTING_SENCE_CNT){
       submitToM2X(2,10); //存在
       Serial.println("PIR2 10 has been submitted");
      }else{
       submitToM2X(2,0); //存在
       Serial.println("PIR2 1 has been submitted");
-     }
+     }*/
      //delay(5000); //データがアップされるのを待機
     
     deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
@@ -211,22 +213,26 @@ void setup() {
   Serial.println("starting  setup");
   pinsInit();
   //人感センサの電源をON
-  digitalWrite(PIR_POWER,HIGH);
+ // digitalWrite(PIR_POWER,HIGH);
+  Serial.println("PIR started");
+   
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED,5); //一旦LED点灯。
   //Blynkの環境セットアップ
- // Blynk.begin(auth, ssid, password);
+  //Blynk.begin(auth, ssid, password);
 
 /////////////////////
+Serial.println("start wifi");
   WiFi.begin(ssid, password);
+  delay(1000);
   while (WiFi.status() != WL_CONNECTED) {
     delay(3000);
-    Serial.print(".");
+    Serial.print("m__m.");
   }
   delay(2000); //PIRセットアップのため少し待たせる？
 
   const int httpPort = 80;
-
+  Serial.println("connect to client");
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed 1");
     delay(5000);
