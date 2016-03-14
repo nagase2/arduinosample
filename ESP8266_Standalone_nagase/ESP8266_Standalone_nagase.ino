@@ -224,13 +224,13 @@ void setup() {
 /////////////////////
 Serial.println("start wifi");
   WiFi.begin(ssid, password);
-  delay(1000);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(3000);
-    Serial.print("m__m.");
-  }
-  delay(2000); //PIRセットアップのため少し待たせる？
 
+   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(5000);
+    ESP.restart();
+  }
+ 
   const int httpPort = 80;
   Serial.println("connect to client");
   if (!client.connect(host, httpPort)) {
