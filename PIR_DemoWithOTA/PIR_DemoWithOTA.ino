@@ -44,6 +44,34 @@ WiFiClient client;
 const char* m2xKey = "7e7b47ba14a03597d6ad729c0313e4ae";
 
 
+/**
+   LEDを点滅させる
+*/
+void blinkLED(int pinNo, int waitTime, int repertCount) {
+  for (int i = 0; i <= repertCount; i++) {
+    digitalWrite(pinNo, HIGH);
+    delay(waitTime);
+    digitalWrite(pinNo, LOW);
+    delay(waitTime);
+  }
+}
+/**
+   deepSleep実施
+*/
+void deepSleep() {
+  //誰もいなかったら DEEP SLEEPモード突入命令
+  Serial.println("DEEP SLEEP START!!");
+  //LED点滅
+  blinkLED(SMALL_LED, 100, 2);
+  blinkLED(LED, 300, 3);
+
+  //1:μ秒での復帰までのタイマー時間設定  2:復帰するきっかけの設定（モード設定）
+  ESP.deepSleep(SLEEP_DURATION * 1000 * 1000 , WAKE_RF_DEFAULT);
+  //deepsleepモード移行までのダミー命令
+  delay(1000);
+}
+
+
 boolean isPeopleDetected()
 {
   int sensorValue = digitalRead(PIR_MOTION_SENSOR);
@@ -64,6 +92,9 @@ void pinsInit()
   pinMode(LED, OUTPUT);
   pinMode(SMALL_LED, OUTPUT);
   //pinMode(PIR_POWER, OUTPUT);
+
+  pinMode(15, OUTPUT);
+  pinMode(2, INPUT);
 
 }
 
@@ -127,38 +158,15 @@ void submitToM2X(int PIRNumber, int returnValue) {
 }
 
 
-/**
-   LEDを点滅させる
-*/
-void blinkLED(int pinNo, int waitTime, int repertCount) {
-  for (int i = 0; i <= repertCount; i++) {
-    digitalWrite(pinNo, HIGH);
-    delay(waitTime);
-    digitalWrite(pinNo, LOW);
-    delay(waitTime);
-  }
-}
 
-/**
-   deepSleep実施
-*/
-void deepSleep() {
-  //誰もいなかったら DEEP SLEEPモード突入命令
-  Serial.println("DEEP SLEEP START!!");
-  //LED点滅
-  blinkLED(SMALL_LED, 100, 2);
-  blinkLED(LED, 300, 3);
 
-  //1:μ秒での復帰までのタイマー時間設定  2:復帰するきっかけの設定（モード設定）
-  ESP.deepSleep(SLEEP_DURATION * 1000 * 1000 , WAKE_RF_DEFAULT);
-  //deepsleepモード移行までのダミー命令
-  delay(1000);
-}
 
 /**
    人感センサで検知する。タイマーで指定された頻度で実施する。
 */
 void sensePIR() {
+
+  
   loopCount++;
   int returnValue = 0;
   if (isPeopleDetected()) { //if it detects the moving people?
@@ -250,6 +258,7 @@ void setup() {
 
 void loop()
 {
+  //printf("PIN2=%d¥n",digitalRead(2));
   count++;
 
   //スイッチの値を読み取り、更新頻度を決定する。
