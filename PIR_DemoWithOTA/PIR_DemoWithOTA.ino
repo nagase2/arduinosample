@@ -33,7 +33,7 @@ int loopCount = 0;
 int detectedCountPIR1 = 0;
 int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
-int requestFreq = 60;
+int requestFreq = 0; //サーバへの更新頻度
 
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
@@ -66,7 +66,45 @@ void pinsInit()
   //pinMode(PIR_POWER, OUTPUT);
 
 }
+
+
+void startWIFI() {
+
+ // Serial.println("start wifi");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(5000);
+    ESP.restart();
+  }
+
+  const int httpPort = 80;
+  //Serial.println("connect to client");
+  if (!client.connect(host, httpPort)) {
+    Serial.println("connection failed 1");
+    delay(5000);
+    if (!client.connect(host, httpPort)) {
+      delay(5000);
+      Serial.println("connection failed 2");
+
+      if (!client.connect(host, httpPort)) {
+        Serial.println("connection failed 3 going to deep sleep mode now..");
+        deepSleep();
+      }
+    }
+
+  }
+}
+void stopWIFI(){
+  WiFi.disconnect();
+}
+
+
+
 void submitToM2X(int PIRNumber, int returnValue) {
+
+  
   String sensorID = "";
   if (PIRNumber == 1) {
     sensorID = "PIR_sensor";
@@ -100,6 +138,7 @@ void blinkLED(int pinNo, int waitTime, int repertCount) {
     delay(waitTime);
   }
 }
+
 /**
    deepSleep実施
 */
@@ -143,65 +182,37 @@ void sensePIR() {
     Serial.println("PIR2:could not find anyone");
     }*/
 
-   Serial.print("detected count now is "+detectedCountPIR1);
+   Serial.printf("detected count now is %d \n", detectedCountPIR1);
 
   if (loopCount >= requestFreq) { //送信頻度を超えたら実行
-    //String  s1 = "abcde";
-
+/*
     if (detectedCountPIR1 >= EXISTING_SENCE_CNT) {
       analogWrite(SMALL_LED, 10);
       submitToM2X(1, detectedCountPIR1); //存在
       Serial.print("----HTTP request had been sent. There was some person!!!!----\n");
-      sleepCount = 0; //スリープカウントをリセット
+      
     } 
     else {
 
       analogWrite(SMALL_LED, 0);
       submitToM2X(1, 0); //不在
       Serial.print("----HTTP request had been sent. no body was there----\n");
-    }
+    }*/
+    startWIFI();
+    delay(1000);
+    submitToM2X(1, detectedCountPIR1); 
+    stopWIFI();
 
     //reset roop count
     loopCount = 0;
     detectedCountPIR1 = 0;
-    detectedCountPIR2 = 0;
+    //detectedCountPIR2 = 0;
 
     deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
 
   }
   //delay(DETECT_FREQ);
 }
-
-
-void startWIFI() {
-
-  Serial.println("start wifi");
-  WiFi.begin(ssid, password);
-
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
-  }
-
-  const int httpPort = 80;
-  Serial.println("connect to client");
-  if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed 1");
-    delay(5000);
-    if (!client.connect(host, httpPort)) {
-      delay(5000);
-      Serial.println("connection failed 2");
-
-      if (!client.connect(host, httpPort)) {
-        Serial.println("connection failed 3 going to deep sleep mode now..");
-        ESP.restart();
-      }
-    }
-
-  }
-}
-
 
 
 /**
@@ -215,7 +226,7 @@ void setup() {
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED, 5); //一旦LED点灯。
 
-  startWIFI();
+  //startWIFI();
 
   //接続完了したことをLED点滅で示す。
   for (int k = 0; k < 3; k++) {
@@ -250,7 +261,7 @@ void loop()
   
   sensePIR();
   delay(1000);
-  startWIFI();
+  //startWIFI();
 }
 
 
