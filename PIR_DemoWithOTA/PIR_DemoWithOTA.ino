@@ -9,7 +9,7 @@
 
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
 #define LED  14   //the Grove - LED is connected to D4 of Arduino
-#define MODE_PIN  15
+#define MODE_PIN  13
 //#define SEND_HTTP_COUNT  60
 //HTTPリクエストを送る頻度(適正値：１０）
 #define EXISTING_SENCE_CNT 1
@@ -33,7 +33,7 @@ int loopCount = 0;
 int detectedCountPIR1 = 0;
 int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
-int requestFreq = 0; //サーバへの更新頻度
+int requestFreq = 99; //サーバへの更新頻度
 
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
@@ -93,20 +93,24 @@ void pinsInit()
   pinMode(SMALL_LED, OUTPUT);
   //pinMode(PIR_POWER, OUTPUT);
 
+
   pinMode(15, OUTPUT);
-  pinMode(2, INPUT);
+  digitalWrite(15,HIGH);
+  
+  pinMode(MODE_PIN, INPUT);
 
 }
 
 
 void startWIFI() {
-
- // Serial.println("start wifi");
+ WiFi.forceSleepWake();
+ delay(2000);
+  Serial.println("starting wifi");
   WiFi.begin(ssid, password);
 
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
+    delay(2000);
     ESP.restart();
   }
 
@@ -129,13 +133,15 @@ void startWIFI() {
 }
 void stopWIFI(){
   WiFi.disconnect();
+  WiFi.forceSleepBegin();
+  Serial.println("WiFi has been sleeped\n");
+  delay(1000);
 }
 
 
 
 void submitToM2X(int PIRNumber, int returnValue) {
 
-  
   String sensorID = "";
   if (PIRNumber == 1) {
     sensorID = "PIR_sensor";
@@ -155,6 +161,8 @@ void submitToM2X(int PIRNumber, int returnValue) {
                // "Connection: close\r\n" +
                "Content-Length: 17\r\n\r\n" +
                "{ \"value\": \"" + returnValue + "\" }\r\n");
+               
+  Serial.printf("sent %d to the server\n",returnValue);
 }
 
 
@@ -234,7 +242,7 @@ void setup() {
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED, 5); //一旦LED点灯。
 
-  //startWIFI();
+  WiFi.forceSleepBegin();//いらないか？？？
 
   //接続完了したことをLED点滅で示す。
   for (int k = 0; k < 3; k++) {
@@ -258,17 +266,19 @@ void setup() {
 
 void loop()
 {
-  //printf("PIN2=%d¥n",digitalRead(2));
   count++;
 
-  //スイッチの値を読み取り、更新頻度を決定する。
-  if(digitalRead(MODE_PIN)==HIGH){
+  //スイッチの値を読み取り、更新頻度を決定する。←現在動作していない。常にElse
+  if(digitalRead(MODE_PIN)==LOW){
     requestFreq = 2;
+    Serial.println("ferequency is 2");
   }else{
-    requestFreq = 60;
+    requestFreq = 90;
+    Serial.println("ferequency is 60");
   }
   
   sensePIR();
+  
   delay(1000);
   //startWIFI();
 }
