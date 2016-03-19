@@ -146,7 +146,7 @@ void startWIFI() {
 }
 void stopWIFI(){
   WiFi.disconnect();
-  //WiFi.forceSleepBegin();
+  WiFi.forceSleepBegin();
   sleepflag == true;
   Serial.println("WiFi has been sleeped\n");
   delay(2000);
