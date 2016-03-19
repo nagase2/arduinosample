@@ -24,7 +24,7 @@
 
 #define GRAPH_TRUE  10 //グラフの存在数値
 #define GRAPH_FALSE  1 //グラフの不在数値
-
+#define ESP8266_REG(addr) ((volatile uint32_t )(0x60000000+(addr)))
 
 SimpleTimer timer;
 int count = 0;
@@ -34,7 +34,7 @@ int detectedCountPIR1 = 0;
 int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
 int requestFreq = 99; //サーバへの更新頻度
-
+boolean sleepflag = false;
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
 const char* host = "api-m2x.att.com";
@@ -93,18 +93,21 @@ void pinsInit()
   pinMode(SMALL_LED, OUTPUT);
   //pinMode(PIR_POWER, OUTPUT);
 
-
   pinMode(15, OUTPUT);
   digitalWrite(15,HIGH);
   
   pinMode(MODE_PIN, INPUT);
-
 }
 
 
 void startWIFI() {
- WiFi.forceSleepWake();
- delay(2000);
+ if(sleepflag == true){
+  WiFi.forceSleepWake();
+  delay(4000);
+  sleepflag = false;
+ }
+ 
+ 
   Serial.println("starting wifi");
   WiFi.begin(ssid, password);
 
@@ -134,9 +137,12 @@ void startWIFI() {
 void stopWIFI(){
   WiFi.disconnect();
   WiFi.forceSleepBegin();
+  sleepflag == true;
   Serial.println("WiFi has been sleeped\n");
-  delay(1000);
+  delay(2000);
 }
+
+
 
 
 
