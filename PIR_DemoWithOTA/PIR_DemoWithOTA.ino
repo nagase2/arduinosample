@@ -10,7 +10,7 @@
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
 #define LED  14   //the Grove - LED is connected to D4 of Arduino
 #define MODE_PIN  13
-//#define SEND_HTTP_COUNT  60
+#define SEND_HTTP_COUNT  60
 //HTTPリクエストを送る頻度(適正値：１０）
 #define EXISTING_SENCE_CNT 1
 #define SLEEP_DURATION 5 //スリープする時間（秒単位）（適正値：３０〜６０）
@@ -24,7 +24,7 @@
 
 #define GRAPH_TRUE  10 //グラフの存在数値
 #define GRAPH_FALSE  1 //グラフの不在数値
-#define ESP8266_REG(addr) ((volatile uint32_t )(0x60000000+(addr)))
+//#define ESP8266_REG(addr) ((volatile uint32_t )(0x60000000+(addr)))
 
 SimpleTimer timer;
 int count = 0;
@@ -38,6 +38,9 @@ boolean sleepflag = false;
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
 const char* host = "api-m2x.att.com";
+const int httpPort = 80;
+//const char* host = "localhost";
+//const int httpPort = 7776;
 
 // Use WiFiClient class to create TCP connections
 WiFiClient client;
@@ -101,23 +104,30 @@ void pinsInit()
 
 
 void startWIFI() {
- if(sleepflag == true){
+ //if(sleepflag == true){
+  Serial.println("force sleep wake!");
   WiFi.forceSleepWake();
-  delay(4000);
-  sleepflag = false;
- }
+  delay(1000);
+  //sleepflag = false;
+ //}
  
  
   Serial.println("starting wifi");
   WiFi.begin(ssid, password);
 
+  int failedcount=0;
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
+    failedcount++;
+    Serial.println("Connection Failed! retriying.");
+    //WiFi.forceSleepWake();
     delay(2000);
-    ESP.restart();
+    if(failedcount >= 5){
+      Serial.println("Connection Failed! Rebooting...");
+      ESP.restart();
+    }
   }
 
-  const int httpPort = 80;
+  
   //Serial.println("connect to client");
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed 1");
@@ -136,7 +146,7 @@ void startWIFI() {
 }
 void stopWIFI(){
   WiFi.disconnect();
-  WiFi.forceSleepBegin();
+  //WiFi.forceSleepBegin();
   sleepflag == true;
   Serial.println("WiFi has been sleeped\n");
   delay(2000);
@@ -156,7 +166,8 @@ void submitToM2X(int PIRNumber, int returnValue) {
   }
 
   String m2xURL =  "/v2/devices/33d8824f9deee514852ee77258d74b42/streams/" + sensorID + "/value";
-
+  //String m2xURL = "/data/5/value/"+returnValue;
+  
   //M2xにデータを送信する
   client.print("PUT " + m2xURL + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
@@ -170,9 +181,6 @@ void submitToM2X(int PIRNumber, int returnValue) {
                
   Serial.printf("sent %d to the server\n",returnValue);
 }
-
-
-
 
 
 /**
@@ -279,8 +287,8 @@ void loop()
     requestFreq = 2;
     Serial.println("ferequency is 2");
   }else{
-    requestFreq = 90;
-    Serial.println("ferequency is 60");
+    requestFreq = SEND_HTTP_COUNT;
+    Serial.println("ferequency is "+SEND_HTTP_COUNT);
   }
   
   sensePIR();
