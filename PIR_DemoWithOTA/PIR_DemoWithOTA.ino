@@ -10,7 +10,7 @@
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
 #define LED  14   //the Grove - LED is connected to D4 of Arduino
 #define MODE_PIN  13
-#define SEND_HTTP_COUNT  60
+#define SEND_HTTP_COUNT  10
 //HTTPリクエストを送る頻度(適正値：１０）
 #define EXISTING_SENCE_CNT 1
 #define SLEEP_DURATION 5 //スリープする時間（秒単位）（適正値：３０〜６０）
@@ -37,10 +37,11 @@ int requestFreq = 99; //サーバへの更新頻度
 boolean sleepflag = false;
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
-const char* host = "api-m2x.att.com";
-const int httpPort = 80;
-//const char* host = "localhost";
-//const int httpPort = 7776;
+///const char* host = "api-m2x.att.com";
+///const int httpPort = 80;
+//const char* host = "192.168.1.80";
+const char* host = "ec2-52-196-9-244.ap-northeast-1.compute.amazonaws.com";
+const int httpPort = 7776;
 
 // Use WiFiClient class to create TCP connections
 WiFiClient client;
@@ -166,8 +167,7 @@ void submitToM2X(int PIRNumber, int returnValue) {
   }
 
   String m2xURL =  "/v2/devices/33d8824f9deee514852ee77258d74b42/streams/" + sensorID + "/value";
-  //String m2xURL = "/data/5/value/"+returnValue;
-  
+
   //M2xにデータを送信する
   client.print("PUT " + m2xURL + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
@@ -180,6 +180,29 @@ void submitToM2X(int PIRNumber, int returnValue) {
                "{ \"value\": \"" + returnValue + "\" }\r\n");
                
   Serial.printf("sent %d to the server\n",returnValue);
+  String response = client.readString();
+  Serial.println(response);
+}
+
+void submitToLocal(int PIRNumber, int returnValue) {
+
+  String sensorID = "";
+  if (PIRNumber == 1) {
+    sensorID = "PIR_sensor";
+  } else {
+    sensorID = "-------";
+  }
+
+  String url = "/data/5/value/"+String(returnValue);
+
+  //My server にデータを送信する
+  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" + 
+               "Connection: close\r\n\r\n");
+               
+  Serial.printf("sent %d to the server\n",returnValue);
+  String response = client.readString();
+  Serial.println(response);
 }
 
 
@@ -187,7 +210,6 @@ void submitToM2X(int PIRNumber, int returnValue) {
    人感センサで検知する。タイマーで指定された頻度で実施する。
 */
 void sensePIR() {
-
   
   loopCount++;
   int returnValue = 0;
@@ -230,7 +252,8 @@ void sensePIR() {
     }*/
     startWIFI();
     delay(1000);
-    submitToM2X(1, detectedCountPIR1); 
+    //submitToM2X(1, detectedCountPIR1); 
+    submitToLocal(1, detectedCountPIR1); 
     stopWIFI();
 
     //reset roop count
