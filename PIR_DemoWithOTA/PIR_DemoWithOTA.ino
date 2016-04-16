@@ -10,7 +10,7 @@
 #define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
 #define LED  14   //the Grove - LED is connected to D4 of Arduino
 #define MODE_PIN  13
-#define SEND_HTTP_COUNT  10
+#define SEND_HTTP_COUNT  60
 //HTTPリクエストを送る頻度(適正値：１０）
 #define EXISTING_SENCE_CNT 1
 #define SLEEP_DURATION 5 //スリープする時間（秒単位）（適正値：３０〜６０）
@@ -37,8 +37,7 @@ int requestFreq = 99; //サーバへの更新頻度
 boolean sleepflag = false;
 const char* ssid     = "NAGA12345";
 const char* password = "nagase222";
-///const char* host = "api-m2x.att.com";
-///const int httpPort = 80;
+
 //const char* host = "192.168.1.80";
 const char* host = "ec2-52-196-9-244.ap-northeast-1.compute.amazonaws.com";
 const int httpPort = 7776;
@@ -100,7 +99,6 @@ void pinsInit()
   pinMode(15, OUTPUT);
   digitalWrite(15,HIGH);
   
-  pinMode(MODE_PIN, INPUT);
 }
 
 
@@ -155,10 +153,9 @@ void stopWIFI(){
 
 
 
-
-
 void submitToM2X(int PIRNumber, int returnValue) {
-
+ 
+  
   String sensorID = "";
   if (PIRNumber == 1) {
     sensorID = "PIR_sensor";
@@ -252,7 +249,7 @@ void sensePIR() {
     }*/
     startWIFI();
     delay(1000);
-    //submitToM2X(1, detectedCountPIR1); 
+   // submitToM2X(1, detectedCountPIR1); 
     submitToLocal(1, detectedCountPIR1); 
     stopWIFI();
 
@@ -276,6 +273,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("starting  setup");
   pinsInit();
+  
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED, 5); //一旦LED点灯。
 
@@ -307,12 +305,14 @@ void loop()
 
   //スイッチの値を読み取り、更新頻度を決定する。←現在動作していない。常にElse
   if(digitalRead(MODE_PIN)==LOW){
-    requestFreq = 2;
-    Serial.println("ferequency is 2");
+    requestFreq = 10;
+    Serial.println("ferequency is 10");
   }else{
     requestFreq = SEND_HTTP_COUNT;
-    Serial.println("ferequency is "+SEND_HTTP_COUNT);
+    Serial.printf("MODE IS HIGH frequency is %d \n",requestFreq);
+    
   }
+  
   
   sensePIR();
   
