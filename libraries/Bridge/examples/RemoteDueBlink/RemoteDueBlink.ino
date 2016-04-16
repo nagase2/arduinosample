@@ -11,19 +11,15 @@
 
   modified 8 May 2014
   by Scott Fitzgerald
+
+  modified by Marco Brianza to show the remote sketch update feature on Arduino Due using Yún Shield
  */
 
+#include <Bridge.h>
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  uint16_t s,res;
-
-os_printf("Erasing sectors\n");
-for (s=0x70;s<=0x7F; s++)
-{
-res = spi_flash_erase_sector(s);
-os_printf("Sector erased 0x%02X. Res %d\n",s,res);
-}
+  checkForRemoteSketchUpdate();
   // initialize digital pin 13 as an output.
   pinMode(13, OUTPUT);
 }
@@ -31,7 +27,7 @@ os_printf("Sector erased 0x%02X. Res %d\n",s,res);
 // the loop function runs over and over again forever
 void loop() {
   digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);              // wait for a second
+  delay(100);              // wait for a second
   digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
-  delay(1000);              // wait for a second
+  delay(100);              // wait for a second
 }
