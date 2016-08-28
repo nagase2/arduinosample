@@ -18,7 +18,7 @@
 
 
 //#define PIR_POWER  15 //黄色
-//#define DEEP_SLEEP_COUNT 3 //Deep s]leep に入るまでのカウント数(連続して検知ができなかったら） 
+//#define DEEP_SLEEP_COUNT 3 //Deep s]leep に入るまでのカウント数(連続して検知ができなかったら）
 //一HTTPリクエスト中、誰かがいると検知する最低回数。
 //#define DETECT_FREQ  1000 //センサの値をとる頻度
 
@@ -35,7 +35,7 @@ int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
 int requestFreq = 99; //サーバへの更新頻度
 boolean sleepflag = false;
-const char* ssid     = "NAGA12345";
+const char* ssid     = "NAGA123456";
 const char* password = "nagase222";
 
 //const char* host = "192.168.1.80";
@@ -44,7 +44,8 @@ const int httpPort = 7776;
 
 // Use WiFiClient class to create TCP connections
 WiFiClient client;
-const char* m2xKey = "7e7b47ba14a03597d6ad729c0313e4ae";
+WiFiClient m2xClient;
+
 
 
 /**
@@ -97,36 +98,36 @@ void pinsInit()
   //pinMode(PIR_POWER, OUTPUT);
 
   pinMode(15, OUTPUT);
-  digitalWrite(15,HIGH);
-  
+  digitalWrite(15, HIGH);
+
 }
 
 
 void startWIFI() {
- //if(sleepflag == true){
+  //if(sleepflag == true){
   Serial.println("force sleep wake!");
   WiFi.forceSleepWake();
   delay(1000);
   //sleepflag = false;
- //}
- 
- 
+  //}
+
+
   Serial.println("starting wifi");
   WiFi.begin(ssid, password);
 
-  int failedcount=0;
+  int failedcount = 0;
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
     failedcount++;
     Serial.println("Connection Failed! retriying.");
     //WiFi.forceSleepWake();
     delay(2000);
-    if(failedcount >= 5){
+    if (failedcount >= 5) {
       Serial.println("Connection Failed! Rebooting...");
       ESP.restart();
     }
   }
 
-  
+
   //Serial.println("connect to client");
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed 1");
@@ -143,7 +144,8 @@ void startWIFI() {
 
   }
 }
-void stopWIFI(){
+
+void stopWIFI() {
   WiFi.disconnect();
   WiFi.forceSleepBegin();
   sleepflag == true;
@@ -151,36 +153,51 @@ void stopWIFI(){
   delay(2000);
 }
 
-
-
+/**
+   M2xにデータを送信する
+ * */
 void submitToM2X(int PIRNumber, int returnValue) {
- 
+  const char* m2xHost = "api-m2x.att.com";
+  String m2xKey = "7e7b47ba14a03597d6ad729c0313e4ae";
+  String m2xURL =  "/v2/devices/33d8824f9deee514852ee77258d74b42/streams/PIR_sensor/value";
   
-  String sensorID = "";
-  if (PIRNumber == 1) {
-    sensorID = "PIR_sensor";
+  if (returnValue >= 1) {  //検出数が０でない場合は送信対象とする
+    if (!m2xClient.connect(m2xHost, 80)) {
+      Serial.println("connection failed 1");
+      delay(5000);
+      if (!m2xClient.connect(host, httpPort)) {
+        delay(5000);
+        Serial.println("connection failed 2");
+
+        if (!m2xClient.connect(host, httpPort)) {
+          Serial.println("connection failed 3 ");
+          //deepSleep();
+        }
+      }
+    }
+    //M2xにデータを送信する
+    m2xClient.print("PUT " + m2xURL + " HTTP/1.1\r\n" +
+                    "Host: " + m2xHost + "\r\n" +
+                    "User-Agent: curl/7.43.0\r\n" +
+                    "Accept: */*\r\n" +
+                    "X-M2X-KEY: " + m2xKey + "\r\n" +
+                    "Content-Type: application/json\r\n" +
+                    // "Connection: close\r\n" +
+                    "Content-Length: 17\r\n\r\n" +
+                    "{ \"value\": \"" + returnValue + "\" }\r\n");
+
+    Serial.printf("sent %d to the m2x server\n", returnValue);
+    String response = m2xClient.readString();
+    Serial.println(response);
   } else {
-    sensorID = "-------";
+    Serial.println("値が0なのでM2xには送信しません");
+
   }
-
-  String m2xURL =  "/v2/devices/33d8824f9deee514852ee77258d74b42/streams/" + sensorID + "/value";
-
-  //M2xにデータを送信する
-  client.print("PUT " + m2xURL + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" +
-               "User-Agent: curl/7.43.0\r\n" +
-               "Accept: */*\r\n" +
-               "X-M2X-KEY: " + m2xKey + "\r\n" +
-               "Content-Type: application/json\r\n" +
-               // "Connection: close\r\n" +
-               "Content-Length: 17\r\n\r\n" +
-               "{ \"value\": \"" + returnValue + "\" }\r\n");
-               
-  Serial.printf("sent %d to the server\n",returnValue);
-  String response = client.readString();
-  Serial.println(response);
 }
 
+/**
+   AWSのサーバにセンサデータを送信する
+*/
 void submitToLocal(int PIRNumber, int returnValue) {
 
   String sensorID = "";
@@ -190,14 +207,14 @@ void submitToLocal(int PIRNumber, int returnValue) {
     sensorID = "-------";
   }
 
-  String url = "/data/5/value/"+String(returnValue);
+  String url = "/data/5/value/" + String(returnValue);
 
   //My server にデータを送信する
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
+               "Host: " + host + "\r\n" +
                "Connection: close\r\n\r\n");
-               
-  Serial.printf("sent %d to the server\n",returnValue);
+
+  Serial.printf("sent %d to the server\n", returnValue);
   String response = client.readString();
   Serial.println(response);
 }
@@ -207,7 +224,7 @@ void submitToLocal(int PIRNumber, int returnValue) {
    人感センサで検知する。タイマーで指定された頻度で実施する。
 */
 void sensePIR() {
-  
+
   loopCount++;
   int returnValue = 0;
   if (isPeopleDetected()) { //if it detects the moving people?
@@ -231,37 +248,37 @@ void sensePIR() {
     Serial.println("PIR2:could not find anyone");
     }*/
 
-   Serial.printf("detected count now is %d \n", detectedCountPIR1);
+  Serial.printf("detected count now is %d \n", detectedCountPIR1);
 
   if (loopCount >= requestFreq) { //送信頻度を超えたら実行
-/*
-    if (detectedCountPIR1 >= EXISTING_SENCE_CNT) {
-      analogWrite(SMALL_LED, 10);
-      submitToM2X(1, detectedCountPIR1); //存在
-      Serial.print("----HTTP request had been sent. There was some person!!!!----\n");
-      
-    } 
-    else {
+    /*
+        if (detectedCountPIR1 >= EXISTING_SENCE_CNT) {
+          analogWrite(SMALL_LED, 10);
+          submitToM2X(1, detectedCountPIR1); //存在
+          Serial.print("----HTTP request had been sent. There was some person!!!!----\n");
 
-      analogWrite(SMALL_LED, 0);
-      submitToM2X(1, 0); //不在
-      Serial.print("----HTTP request had been sent. no body was there----\n");
-    }*/
+        }
+        else {
+
+          analogWrite(SMALL_LED, 0);
+          submitToM2X(1, 0); //不在
+          Serial.print("----HTTP request had been sent. no body was there----\n");
+        }*/
     startWIFI();
     delay(1000);
-   // submitToM2X(1, detectedCountPIR1); 
-    submitToLocal(1, detectedCountPIR1); 
+    submitToM2X(1, detectedCountPIR1);
+    submitToLocal(1, detectedCountPIR1);
     stopWIFI();
 
     //reset roop count
     loopCount = 0;
     detectedCountPIR1 = 0;
-    //detectedCountPIR2 = 0;
 
-    deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
+
+    //deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
 
   }
-  //delay(DETECT_FREQ);
+
 }
 
 
@@ -273,7 +290,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("starting  setup");
   pinsInit();
-  
+
   //接続開始を示すLED点灯
   analogWrite(SMALL_LED, 5); //一旦LED点灯。
 
@@ -303,19 +320,18 @@ void loop()
 {
   count++;
 
-  //スイッチの値を読み取り、更新頻度を決定する。←現在動作していない。常にElse
-  if(digitalRead(MODE_PIN)==LOW){
+  if (digitalRead(MODE_PIN) == LOW) {
     requestFreq = 10;
     Serial.println("ferequency is 10");
-  }else{
+  } else {
     requestFreq = SEND_HTTP_COUNT;
-    Serial.printf("MODE IS HIGH frequency is %d \n",requestFreq);
-    
+    Serial.printf("MODE IS HIGH frequency is %d \n", requestFreq);
+
   }
-  
-  
+
+
   sensePIR();
-  
+
   delay(1000);
   //startWIFI();
 }

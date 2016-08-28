@@ -1,6 +1,8 @@
 # WiFiManager
 ESP8266 WiFi Connection manager with fallback web configuration portal
 
+[![Build Status](https://travis-ci.org/tzapu/WiFiManager.svg?branch=master)](https://travis-ci.org/tzapu/WiFiManager)
+
 The configuration portal is of the captive variety, so on various devices it will present the configuration dialogue as soon as you connect to the created access point.
 
 First attempt at a library. Lots more changes and fixes to do. Contributions are welcome.
@@ -50,7 +52,7 @@ First attempt at a library. Lots more changes and fixes to do. Contributions are
 - ~~add to Arduino Library Manager~~
 - ~~add to PlatformIO~~
 - add multiple sets of network credentials
-- allow users to customize CSS
+- ~~allow users to customize CSS~~
 
 ## Quick Start
 
@@ -58,7 +60,7 @@ First attempt at a library. Lots more changes and fixes to do. Contributions are
 You can either install through the Arduino Library Manager or checkout the latest changes or a release from github
 
 #### Install through Library Manager
-__Currently version 0.8 works with release 2.0.0 or newer of the [ESP8266 core for Arduino](https://github.com/esp8266/Arduino)__
+__Currently version 0.8+ works with release 2.0.0 or newer of the [ESP8266 core for Arduino](https://github.com/esp8266/Arduino)__
  - in Arduino IDE got to Sketch/Include Library/Manage Libraries
   ![Manage Libraries](http://i.imgur.com/9BkEBkR.png)
 
@@ -74,9 +76,11 @@ __Github version works with release 2.0.0 or newer of the [ESP8266 core for Ardu
 ### Using
 - Include in your sketch
 ```cpp
-#include <DNSServer.h>
-#include <ESP8266WebServer.h>
-#include <WiFiManager.h>
+#include <ESP8266WiFi.h>          //ESP8266 Core WiFi Library (you most likely already have this in your sketch)
+
+#include <DNSServer.h>            //Local DNS Server used for redirecting all requests to the configuration portal
+#include <ESP8266WebServer.h>     //Local WebServer used to serve the configuration portal
+#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 ```
 
 - Initialize library, in your setup function add
@@ -175,7 +179,7 @@ void loop() {
 ```
 See example for a more complex version. [OnDemandConfigPortal](https://github.com/tzapu/WiFiManager/tree/master/examples/OnDemandConfigPortal)
 
-### Custom Parameters
+#### Custom Parameters
 You can use WiFiManager to collect more parameters than just SSID and password.
 This could be helpful for configuring stuff like MQTT host and port, [blynk](http://www.blynk.cc) or [emoncms](http://emoncms.org) tokens, just to name a few.
 **You are responsible for saving and loading these custom values.** The library just collects and displays the data for you as a convenience.
@@ -194,31 +198,62 @@ Usage scenario would be:
  ```cpp
  mqtt_server = custom_mqtt_server.getValue();
  ```  
-This feature is a lot more involved than all the others, so here are some examples to fully show how it is done
+This feature is a lot more involved than all the others, so here are some examples to fully show how it is done.
+You should also take a look at adding custom HTML to your form.
+
 - Save and load custom parameters to file system in json form [AutoConnectWithFSParameters](https://github.com/tzapu/WiFiManager/tree/master/examples/AutoConnectWithFSParameters)
 - *Save and load custom parameters to EEPROM* (not done yet)
 
+#### Custom IP Configuration
+You can set a custom IP for both AP (access point, config mode) and STA (station mode, client mode, normal project state)
 
-### Custom Access Point IP Configuration
+##### Custom Access Point IP Configuration
 This will set your captive portal to a specific IP should you need/want such a feature. Add the following snippet before `autoConnect()`
 ```cpp
 //set custom ip for portal
 wifiManager.setAPStaticIPConfig(IPAddress(10,0,1,1), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
 ```
 
-### Custom Station (client) Static IP Configuration
+##### Custom Station (client) Static IP Configuration
 This will make use the specified IP configuration instead of using DHCP in station mode.
 ```cpp
 wifiManager.setSTAStaticIPConfig(IPAddress(192,168,0,99), IPAddress(192,168,0,1), IPAddress(255,255,255,0));
 ```
 There are a couple of examples in the examples folder that show you how to set a static IP and even how to configure it through the web configuration portal.
 
+#### Custom HTML, CSS, Javascript
+There are various ways in which you can inject custom HTML, CSS or Javascript into the configuration portal.
+The options are:
+- inject custom head element
+You can use this to any html bit to the head of the configuration portal. If you add a `<style>` element, bare in mind it overwrites the included css, not replaces.
+```cpp
+wifiManager.setCustomHeadElement("<style>html{filter: invert(100%); -webkit-filter: invert(100%);}</style>");
+```
+- inject a custom bit of html in the configuration form
+```cpp
+WiFiManagerParameter custom_text("<p>This is just a text paragraph</p>");
+wifiManager.addParameter(&custom_text);
+```
+- inject a custom bit of html in a configuration form element
+Just add the bit you want added as the last parameter to the custom parameter constructor.
+```cpp
+WiFiManagerParameter custom_mqtt_server("server", "mqtt server", "iot.eclipse", 40, " readonly");
+```
+
 #### Filter Networks
-If you would like to filter low signal quality networks you can tell WiFiManager to not show networks below an arbitrary quality %;
+You can filter networks based on signal quality and show/hide duplicate networks.
+
+- If you would like to filter low signal quality networks you can tell WiFiManager to not show networks below an arbitrary quality %;
 ```cpp
 wifiManager.setMinimumSignalQuality(10);
 ```
 will not show networks under 10% signal quality. If you omit the parameter it defaults to 8%;
+
+- You can also remove or show duplicate networks (default is remove).
+Use this function to show (or hide) all networks.
+```cpp
+wifiManager.setRemoveDuplicateAPs(false);
+```
 
 #### Debug
 Debug is enabled by default on Serial. To disable add before autoConnect
@@ -233,12 +268,26 @@ Changes added on 0.8 should make the latest trunk work without compilation error
 
 I am trying to keep releases working with release versions of the core, so they can be installed through boards manager, but if you checkout the latest version directly from github, sometimes, the library will only work if you update the ESP8266 core to the latest version because I am using some newly added function.
 
-
 If you connect to the created configuration Access Point but the configuration portal does not show up, just open a browser and type in the IP of the web portal, by default `192.168.4.1`.
 
+If trying to connect ends up in an endless loop, try to add `setConnectTimeout(60)` before `autoConnect();`. The parameter is timeout to try connecting in seconds.
 
 ## Releases
-#### 0.9
+#### 0.11
+- a lot more reliable reconnecting to networks
+- custom html in custom parameters (for read only params)
+- custom html in custom parameter form (like labels)
+- custom head element (like custom css)
+- sort networks based on signal quality
+- remove duplicate networks
+
+##### 0.10
+- some css changes
+- bug fixes and speed improvements
+- added an alternative to waitForConnectResult() for debugging
+- changed `setTimeout(seconds)` to `setConfigPortalTimeout(seconds)`
+
+##### 0.9
  - fixed support for encoded characters in ssid/pass
 
 ##### 0.8
@@ -283,6 +332,8 @@ works with the staging release ver. 1.6.5-1044-g170995a, built on Aug 10, 2015 o
 The support and help I got from the community has been nothing short of phenomenal. I can't thank you guys enough. This is my first real attept in developing open source stuff and I must say, now I understand why people are so dedicated to it, it is because of all the wonderful people involved.
 
 __THANK YOU__
+
+[Shawn A](https://github.com/tablatronix)
 
 [Maximiliano Duarte](https://github.com/domonetic)
 

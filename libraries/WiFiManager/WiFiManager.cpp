@@ -12,7 +12,24 @@
 
 #include "WiFiManager.h"
 
+WiFiManagerParameter::WiFiManagerParameter(const char *custom) {
+  _id = NULL;
+  _placeholder = NULL;
+  _length = 0;
+  _value = NULL;
+
+  _customHTML = custom;
+}
+
 WiFiManagerParameter::WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length) {
+  init(id, placeholder, defaultValue, length, "");
+}
+
+WiFiManagerParameter::WiFiManagerParameter(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom) {
+  init(id, placeholder, defaultValue, length, custom);
+}
+
+void WiFiManagerParameter::init(const char *id, const char *placeholder, const char *defaultValue, int length, const char *custom) {
   _id = id;
   _placeholder = placeholder;
   _length = length;
@@ -23,6 +40,8 @@ WiFiManagerParameter::WiFiManagerParameter(const char *id, const char *placehold
   if (defaultValue != NULL) {
     strncpy(_value, defaultValue, length);
   }
+
+  _customHTML = custom;
 }
 
 const char* WiFiManagerParameter::getValue() {
@@ -36,6 +55,9 @@ const char* WiFiManagerParameter::getPlaceholder() {
 }
 int WiFiManagerParameter::getValueLength() {
   return _length;
+}
+const char* WiFiManagerParameter::getCustomHTML() {
+  return _customHTML;
 }
 
 WiFiManager::WiFiManager() {
@@ -129,8 +151,8 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
 
 boolean  WiFiManager::startConfigPortal(char const *apName, char const *apPassword) {
   //setup AP
-  WiFi.mode(WIFI_AP);
-  DEBUG_WM("SET AP");
+  WiFi.mode(WIFI_AP_STA);
+  DEBUG_WM("SET AP STA");
 
   _apName = apName;
   _apPassword = apPassword;
@@ -198,13 +220,26 @@ int WiFiManager::connectWifi(String ssid, String pass) {
     WiFi.config(_sta_static_ip, _sta_static_gw, _sta_static_sn);
     DEBUG_WM(WiFi.localIP());
   }
-
+  //fix for auto connect racing issue
+  if (WiFi.status() == WL_CONNECTED) {
+    DEBUG_WM("Already connected. Bailing out.");
+    return WL_CONNECTED;
+  }
   //check if we have ssid and pass and force those, if not, try with last saved values
   if (ssid != "") {
     WiFi.begin(ssid.c_str(), pass.c_str());
   } else {
-    DEBUG_WM("Using last saved values, should be faster");
-    WiFi.begin();
+    if(WiFi.SSID()) {
+      DEBUG_WM("Using last saved values, should be faster");
+      //trying to fix connection in progress hanging
+      ETS_UART_INTR_DISABLE();
+      wifi_station_disconnect();
+      ETS_UART_INTR_ENABLE();
+
+      WiFi.begin();
+    } else {
+      DEBUG_WM("No saved credentials");
+    }
   }
 
   int connRes = waitForConnectResult();
@@ -325,6 +360,7 @@ void WiFiManager::handleRoot() {
   page.replace("{v}", "Options");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
+  page += _customHeadElement;
   page += FPSTR(HTTP_HEAD_END);
   page += "<h1>";
   page += _apName;
@@ -344,6 +380,7 @@ void WiFiManager::handleWifi(boolean scan) {
   page.replace("{v}", "Config ESP");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
+  page += _customHeadElement;
   page += FPSTR(HTTP_HEAD_END);
 
   if (scan) {
@@ -353,26 +390,50 @@ void WiFiManager::handleWifi(boolean scan) {
       DEBUG_WM(F("No networks found"));
       page += F("No networks found. Refresh to scan again.");
     } else {
+
       //sort networks
       int indices[n];
-
       for (int i = 0; i < n; i++) {
         indices[i] = i;
       }
 
-      for (int i = 0; i < n; i++) {
-        for (int j = i + 1; j < n; j++) {
-          if (WiFi.RSSI(indices[j]) > WiFi.RSSI(indices[i])) {
-            //int temp = indices[j];
-            //indices[j] = indices[i];
-            //indices[i] = temp;
-            std::swap(indices[i], indices[j]);
+      // RSSI SORT
+
+      // old sort
+      // for (int i = 0; i < n; i++) {
+      //   for (int j = i + 1; j < n; j++) {
+      //     if (WiFi.RSSI(indices[j]) > WiFi.RSSI(indices[i])) {
+      //       //int temp = indices[j];
+      //       //indices[j] = indices[i];
+      //       //indices[i] = temp;
+      //       std::swap(indices[i], indices[j]);
+      //     }
+      //   }
+      // }
+
+      std::sort(indices, indices + n, [](const int & a, const int & b) -> bool
+      {
+        return WiFi.RSSI(a) > WiFi.RSSI(b);
+      });
+
+      // remove duplicates ( must be RSSI sorted )
+      if(_removeDuplicateAPs){
+        String cssid;
+        for (int i = 0; i < n; i++) {
+          if(indices[i] == -1) continue;
+          cssid = WiFi.SSID(indices[i]);
+          for (int j = i + 1; j < n; j++) {
+            if(cssid == WiFi.SSID(indices[j])){
+              DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
+              indices[j] = -1; // set dup aps to index -1
+            }
           }
         }
       }
 
       //display networks in page
       for (int i = 0; i < n; i++) {
+        if(indices[i] == -1) continue; // skip dups
         DEBUG_WM(WiFi.SSID(indices[i]));
         DEBUG_WM(WiFi.RSSI(indices[i]));
         int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
@@ -409,12 +470,17 @@ void WiFiManager::handleWifi(boolean scan) {
     }
 
     String pitem = FPSTR(HTTP_FORM_PARAM);
-    pitem.replace("{i}", _params[i]->getID());
-    pitem.replace("{n}", _params[i]->getID());
-    pitem.replace("{p}", _params[i]->getPlaceholder());
-    snprintf(parLength, 2, "%d", _params[i]->getValueLength());
-    pitem.replace("{l}", parLength);
-    pitem.replace("{v}", _params[i]->getValue());
+    if (_params[i]->getID() != NULL) {
+      pitem.replace("{i}", _params[i]->getID());
+      pitem.replace("{n}", _params[i]->getID());
+      pitem.replace("{p}", _params[i]->getPlaceholder());
+      snprintf(parLength, 2, "%d", _params[i]->getValueLength());
+      pitem.replace("{l}", parLength);
+      pitem.replace("{v}", _params[i]->getValue());
+      pitem.replace("{c}", _params[i]->getCustomHTML());
+    } else {
+      pitem = _params[i]->getCustomHTML();
+    }
 
     page += pitem;
   }
@@ -511,6 +577,7 @@ void WiFiManager::handleWifiSave() {
   page.replace("{v}", "Credentials Saved");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
+  page += _customHeadElement;
   page += FPSTR(HTTP_HEAD_END);
   page += FPSTR(HTTP_SAVED);
   page += FPSTR(HTTP_END);
@@ -530,6 +597,7 @@ void WiFiManager::handleInfo() {
   page.replace("{v}", "Info");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
+  page += _customHeadElement;
   page += FPSTR(HTTP_HEAD_END);
   page += F("<dl>");
   page += F("<dt>Chip ID</dt><dd>");
@@ -569,6 +637,7 @@ void WiFiManager::handleReset() {
   page.replace("{v}", "Info");
   page += FPSTR(HTTP_SCRIPT);
   page += FPSTR(HTTP_STYLE);
+  page += _customHeadElement;
   page += FPSTR(HTTP_HEAD_END);
   page += F("Module will reset in a few seconds.");
   page += FPSTR(HTTP_END);
@@ -636,6 +705,16 @@ void WiFiManager::setSaveConfigCallback( void (*func)(void) ) {
   _savecallback = func;
 }
 
+//sets a custom element to add to head, like a new style tag
+void WiFiManager::setCustomHeadElement(const char* element) {
+  _customHeadElement = element;
+}
+
+//if this is true, remove duplicated Access Points - defaut true
+void WiFiManager::setRemoveDuplicateAPs(boolean removeDuplicates) {
+  _removeDuplicateAPs = removeDuplicates;
+}
+
 
 
 template <typename Generic>
@@ -679,5 +758,3 @@ String WiFiManager::toStringIp(IPAddress ip) {
   res += String(((ip >> 8 * 3)) & 0xFF);
   return res;
 }
-
-

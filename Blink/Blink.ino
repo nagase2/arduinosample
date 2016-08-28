@@ -16,16 +16,10 @@
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  uint16_t s,res;
-
-os_printf("Erasing sectors\n");
-for (s=0x70;s<=0x7F; s++)
-{
-res = spi_flash_erase_sector(s);
-os_printf("Sector erased 0x%02X. Res %d\n",s,res);
-}
-  // initialize digital pin 13 as an output.
-  pinMode(13, OUTPUT);
+  //RED LED
+  pinMode(15, OUTPUT);
+  //GREEN LED
+  pinMode(12, OUTPUT);
 }
 
 // the loop function runs over and over again forever
