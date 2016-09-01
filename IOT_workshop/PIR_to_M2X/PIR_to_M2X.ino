@@ -30,7 +30,7 @@ SimpleTimer timer;
 int count = 0;
 
 int loopCount = 0;
-int detectedCountPIR1 = 0;
+int detectedCount = 0;
 int detectedCountPIR2 = 0;
 int sleepCount = 0; //ディープスリープカウント
 int requestFreq = 10; //サーバへの更新頻度
@@ -105,9 +105,9 @@ void pinsInit()
 
 void startWIFI() {
   //if(sleepflag == true){
-  Serial.println("force sleep wake!");
-  WiFi.forceSleepWake();
-  delay(1000);
+  //Serial.println("force sleep wake!");
+  //WiFi.forceSleepWake();
+  //delay(1000);
   //sleepflag = false;
   //}
 
@@ -131,7 +131,7 @@ void startWIFI() {
   //Serial.println("connect to client");
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed 1");
-    delay(5000);
+    //delay(5000);
     /*if (!client.connect(host, httpPort)) {
       delay(5000);
       Serial.println("connection failed 2");
@@ -163,7 +163,7 @@ void submitToM2X(int PIRNumber, int returnValue) {
   if (returnValue >= 1) {  //検出数が０でない場合は送信対象とする
     if (!m2xClient.connect(m2xHost, 80)) {
       Serial.println("connection failed 1");
-      delay(5000);
+      delay(1000);
      /* if (!m2xClient.connect(host, httpPort)) {
         delay(5000);
         Serial.println("connection failed 2");
@@ -195,31 +195,6 @@ void submitToM2X(int PIRNumber, int returnValue) {
 }
 
 /**
-   AWSのサーバにセンサデータを送信する
-*/
-/*void submitToLocal(int PIRNumber, int returnValue) {
-
-  String sensorID = "";
-  if (PIRNumber == 1) {
-    sensorID = "PIR_sensor";
-  } else {
-    sensorID = "-------";
-  }
-
-  String url = "/data/5/value/" + String(returnValue);
-
-  //My server にデータを送信する
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" +
-               "Connection: close\r\n\r\n");
-
-  Serial.printf("sent %d to the server\n", returnValue);
-  String response = client.readString();
-  Serial.println(response);
-}
-*/
-
-/**
    人感センサで検知する。タイマーで指定された頻度で実施する。
 */
 void sensePIR() {
@@ -228,13 +203,13 @@ void sensePIR() {
   int returnValue = 0;
   if (isPeopleDetected()) { //if it detects the moving people?
     digitalWrite(GREEN_LED, HIGH); //人感センサ検知したらLED点灯
-    detectedCountPIR1++;
-    Serial.printf("PIR1:There!!![%d]\n", loopCount);
+    detectedCount++;
+    Serial.printf("PIR1:Found someone! loopCount=%d detectedCount=%d\n", loopCount,detectedCount);
     //returnValue = 10;
   }
   else {
     digitalWrite(GREEN_LED, LOW); //人感センサ検知なければLED消灯
-    Serial.printf("PIR1:no one[%d]\n", loopCount);
+    Serial.printf("PIR1:no one can find..loopCount=%d detectedCount=%d\n", loopCount);
    
   }
 
@@ -246,13 +221,13 @@ void sensePIR() {
     Serial.println("PIR2:could not find anyone");
     }*/
 
-  Serial.printf("detected count now is %d \n", detectedCountPIR1);
+ // Serial.printf("detected count now is %d \n", detectedCount);
 
   if (loopCount >= requestFreq) { //送信頻度を超えたら実行
     /*
-        if (detectedCountPIR1 >= EXISTING_SENCE_CNT) {
+        if (detectedCount >= EXISTING_SENCE_CNT) {
           analogWrite(SMALL_LED, 10);
-          submitToM2X(1, detectedCountPIR1); //存在
+          submitToM2X(1, detectedCount); //存在
           Serial.print("----HTTP request had been sent. There was some person!!!!----\n");
 
         }
@@ -264,13 +239,13 @@ void sensePIR() {
         }*/
     startWIFI();
     delay(1000);
-    submitToM2X(1, detectedCountPIR1);
-//    submitToLocal(1, detectedCountPIR1);
-    stopWIFI();
+    submitToM2X(1, detectedCount);
+//    submitToLocal(1, detectedCount);
+   // stopWIFI();
 
     //reset roop count
     loopCount = 0;
-    detectedCountPIR1 = 0;
+    detectedCount = 0;
 
 
     //deepSleep(); //毎回Sleepしたい場合は、この行のコメント外す
@@ -294,7 +269,7 @@ void setup() {
 void loop()
 {
   count++;
-
+/*
   if (digitalRead(MODE_PIN) == LOW) {
     requestFreq = 10;
     Serial.println("ferequency is 10");
@@ -302,6 +277,8 @@ void loop()
     requestFreq = SEND_HTTP_COUNT;
     Serial.printf("MODE IS HIGH frequency is %d \n", requestFreq);
   }
+  */
+  requestFreq = SEND_HTTP_COUNT;
 
   sensePIR();
 
