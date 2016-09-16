@@ -4,91 +4,64 @@
 #include <Arduino.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <ESP8266WiFi.h>
 
-#define PIR_MOTION_SENSOR 4 //Use pin 8 to receive the signal from the module 
-#define GREEN_LED  15   //the Grove - LED is connected to D4 of Arduino
-#define MODE_PIN  13
-#define SEND_HTTP_COUNT  10
-//HTTPリクエストを送る頻度(適正値：１０）
-//#define EXISTING_SENCE_CNT 1
-//#define SLEEP_DURATION 5 //スリープする時間（秒単位）（適正値：３０〜６０）
-//#define SMALL_LED  12
+//人感センサを示す番号
+#define PIR_MOTION_SENSOR 4
+//緑のLEDを示す番号（１５番ピンに接続）
+#define GREEN_LED  15 
 
-#define GRAPH_TRUE  10 //グラフの存在数値
-#define GRAPH_FALSE  1 //グラフの不在数値
-
-int count = 0;
-
-int loopCount = 0;
-int detectedCount = 0;
-int detectedCountPIR2 = 0;
-int sleepCount = 0; //ディープスリープカウント
-int requestFreq = 10; //サーバへの更新頻度
-boolean sleepflag = false;
-
+int loopCount = 0; //現在のループ数
+int detectedCount = 0; //人感センサの検知回数
 
 /**
-   LEDを点滅させる
-*/
-void blinkLED(int pinNo, int waitTime, int repertCount) {
-  for (int i = 0; i <= repertCount; i++) {
-    digitalWrite(pinNo, HIGH);
-    delay(waitTime);
-    digitalWrite(pinNo, LOW);
-    delay(waitTime);
-  }
-}
-
-boolean isPeopleDetected()
-{
+ * 人感センサの情報をチェックし、現在の検知状態を調べる。
+ */
+boolean isPeopleDetected(){
   int sensorValue = digitalRead(PIR_MOTION_SENSOR);
-  if (sensorValue == HIGH) //if the sensor value is HIGH?
-  {
+  if (sensorValue == HIGH){ //検知状態
     return true;  //yes,return ture
   }
-  else
-  {
+  else if(sensorValue == LOW){  //未検知状態
     return false;  //no,return false
   }
 }
 
-void pinsInit()
-{
-  pinMode(PIR_MOTION_SENSOR, INPUT);
-  pinMode(GREEN_LED, OUTPUT);
-}
-
-/**
-   人感センサで検知する。タイマーで指定された頻度で実施する。
-*/
+/*
+ * 人感センサをチェックし、結果をコンソールに出力
+ */
 void sensePIR() {
   loopCount++;
   int returnValue = 0;
-  if (isPeopleDetected()) { //if it detects the moving people?
+  
+  //センサの状態を調べて、周りに人がいるかをチェック
+  if (isPeopleDetected()==true) { //人がいたら 
     digitalWrite(GREEN_LED, HIGH); //人感センサ検知したらLED点灯
     detectedCount++;
-    Serial.printf("PIR1: someone! loopCount=%d detectedCount=%d\n",loopCount,detectedCount);
-
+    Serial.printf("PIR1:find someone! loopCount=%d detectedCount=%d\n",loopCount,detectedCount);
   }
-  else {
+  else {        //人がいなかったら
     digitalWrite(GREEN_LED, LOW); //人感センサ検知なければLED消灯
     Serial.printf("PIR1:no one can find..loopCount=%d \n", loopCount);
   }
 }
 
+/**
+ * 準備開始（最初に呼ばれる関数）
+ */
 void setup(){
-  Serial.begin(115200);
-  Serial.println("starting  setup");
-  pinsInit();
+  Serial.begin(115200);//シリアルポートを通信速度115200で開始
+  Serial.println("start setup");
+  
+  pinMode(PIR_MOTION_SENSOR, INPUT); //ピンを入力状態にセット
+  pinMode(GREEN_LED, OUTPUT); //ピンを出力状態にセット
+  
   Serial.println("end of setup");
 }
-
+/**
+ * セットアップの後に連続して呼ばれる
+ */
 void loop(){
-  count++;
-  requestFreq = SEND_HTTP_COUNT;
-  sensePIR();
-
-  delay(1000);
+  sensePIR();//人感センサの状態チェック
+  delay(1000);//一秒待機
 }
