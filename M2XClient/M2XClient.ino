@@ -17,18 +17,17 @@ WiFiClient client;
 WiFiClient m2xClient;
 
 int requestFreq = 10; //サーバへの更新頻度
-const char* ssid     = "NAGA12345";
-const char* password = "nagase222";
-const char* m2xHost = "api-m2x.att.com";
-String m2xKey = "7e7b47ba14a03597d6ad729c0313e4ae";
-String m2xURL =  "/v2/devices/33d8824f9deee514852ee77258d74b42/streams/PIR_sensor/value";
-const int httpPort = 80;
+const char* ssid     = "NAGA12345"; //接続するWifiのSSID
+const char* password = "nagase222"; //接続するWifiのパスワード
+const char* m2xHost = "api-m2x.att.com"; //接続するホストのアドレス
+String m2xKey = "7e7b47ba14a03597d6ad729c0313e4ae";//M2Xに接続する為のKey
+String m2xURL =  "/v2/devices/33d8824f9deee514852ee77258d74b42/streams/PIR_sensor/value";//デバイスを示すURL
+const int httpPort = 80;//ポート番号
 
 /*
  * Wifiに接続する
  */
 void startWIFI() {
-
   Serial.println("starting wifi");
   WiFi.begin(ssid, password);
 
@@ -136,7 +135,6 @@ void setup(){
   
   Serial.println("end of setup");
 }
-
 
 /**
  * セットアップの後に連続して呼ばれる

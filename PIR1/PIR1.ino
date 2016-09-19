@@ -6,10 +6,9 @@
 #include <string.h>
 #include <ESP8266WiFi.h>
 
-//人感センサを示す番号
-#define PIR_MOTION_SENSOR 4
-//緑のLEDを示す番号（１５番ピンに接続）
-#define GREEN_LED  15 
+
+#define PIR_MOTION_SENSOR 4  //人感センサを示す番号
+#define GREEN_LED  15  //緑のLEDを示す番号（１５番ピンに接続）
 
 int loopCount = 0; //現在のループ数
 int detectedCount = 0; //人感センサの検知回数
